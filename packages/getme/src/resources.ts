@@ -41,6 +41,16 @@ export const resourceKinds = [
 	"groupMembership",
 	"printerPort",
 	"deviceInterface",
+	// Environment-scoped kinds: resources that live inside a guest environment (a WSL distro or a
+	// container) rather than on the Windows host. They use the same state/delta machinery but are
+	// addressed through their boundary id — effects there never masquerade as host effects, and
+	// removal reconciles them at the boundary (unregister the distro, remove the image/volume).
+	"wslDistro",
+	"wslFile",
+	"wslPackage",
+	"containerImage",
+	"containerVolume",
+	"guestService",
 ] as const;
 export type ResourceKind = (typeof resourceKinds)[number];
 export const ResourceKind = union(
@@ -69,12 +79,19 @@ export const ResourceKind = union(
  *   groupMembership             grp:S-1-5-32-544\S-1-5-21-...-1001
  *   printerPort                 port:9100_1
  *   deviceInterface             devint:{GUID}\\<instance id>
+ *   wslDistro                   wsl:Ubuntu-24.04            (a registered WSL distro instance)
+ *   wslFile                     wslfile:Ubuntu-24.04/home/user/.local/bin/tool  (POSIX path inside a
+ *                                distro, no leading slash; \\wsl.localhost\<distro>\... is host view)
+ *   wslPackage                  wslpkg:Ubuntu-24.04/apt/python3   (manager-scoped package in a distro)
+ *   containerImage              oci:docker.io/library/postgres@sha256:<digest>  (digest-pinned)
+ *   containerVolume             vol:docker/getme_comfyui_data
+ *   guestService                svc:g:Ubuntu-24.04/systemd/ssh    (service inside an env boundary)
  */
 export const ResourceId = str({
 	minLength: 1,
 	maxLength: 32767,
 	description:
-		"Canonical normalized resource id. Kind-prefixed for non-path kinds (svc:, task:, env:, path:, lnk:, assoc:, cert:, clsid:, feature:, proto:, shellx:, run:, fw:, grp:, port:, devint:); plain paths/registry ids for file/directory/registryKey/registryValue.",
+		"Canonical normalized resource id. Kind-prefixed for non-path kinds (svc:, task:, env:, path:, lnk:, assoc:, cert:, clsid:, feature:, proto:, shellx:, run:, fw:, grp:, port:, devint:, wsl:, wslfile:, wslpkg:, oci:, vol:, svc:g:); plain paths/registry ids for file/directory/registryKey/registryValue.",
 });
 export type ResourceId = string;
 
@@ -203,6 +220,35 @@ export const ResourceState = obj(
 		taskDefinition: opt(str({ maxLength: 1_048_576, description: "Task Scheduler XML definition." })),
 		envValue: opt(str({ maxLength: 32_767 })),
 		pathDirs: opt(arr(str({ maxLength: 4096 }))),
+		wslDistro: opt(obj(
+			{
+				name: str({ maxLength: 64 }),
+				version: opt(union([lit("1"), lit("2")])),
+				defaultUser: opt(str({ maxLength: 128 })),
+				baseImageLocator: opt(str({ maxLength: 4096 })),
+				location: opt(ResourceId),
+				state: opt(union([lit("registered"), lit("running"), lit("stopped"), lit("uninstalled")])),
+			},
+			{ description: "Snapshot facts for a wslDistro resource (the distro instance itself)." },
+		)),
+		packageRef: opt(obj(
+			{
+				manager: IdToken,
+				packageId: str({ maxLength: 512 }),
+				version: opt(str({ maxLength: 128 })),
+				boundaryRef: opt(IdToken),
+			},
+			{ description: "Snapshot facts for wslPackage and other guest-environment package resources." },
+		)),
+		containerRef: opt(obj(
+			{
+				runtime: opt(union([lit("docker-engine"), lit("docker-desktop"), lit("podman"), lit("containerd"), lit("nerdctl")])),
+				digest: opt(Hash),
+				tag: opt(str({ maxLength: 512 })),
+				volumeName: opt(str({ maxLength: 256 })),
+			},
+			{ description: "Snapshot facts for containerImage/containerVolume resources." },
+		)),
 		content: opt(Base64),
 		raw: opt(str({ description: "Kind-specific raw capture, JSON-encoded, for kinds without structured fields yet." })),
 	},
@@ -226,6 +272,9 @@ export type ResourceState = {
 	taskDefinition?: string;
 	envValue?: string;
 	pathDirs?: string[];
+	wslDistro?: { name: string; version?: string; defaultUser?: string; baseImageLocator?: string; location?: string; state?: string };
+	packageRef?: { manager: string; packageId: string; version?: string; boundaryRef?: string };
+	containerRef?: { runtime?: string; digest?: string; tag?: string; volumeName?: string };
 	content?: string;
 	raw?: string;
 };
