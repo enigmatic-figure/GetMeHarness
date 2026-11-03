@@ -213,7 +213,10 @@ export const InstallationRecipe = obj(
 				),
 				method: str({
 					maxLength: 128,
-					description: 'Primary method label: "msi", "exe-silent", "winget", "scoop", "wsl", "portable".',
+					pattern:
+						"^(msi|exe-silent|burn-bundle|clickonce|appx-msix|store|winget|scoop|choco|portable|python-uv|python-pip|python-poetry|python-conda|node-npm|node-pnpm|node-yarn|node-bun|rust-cargo|rust-binstall|java-jdk|dotnet-sdk|cpp-vs-buildtools|cmake|ninja|meson|bazel|llvm-mlir|mingw|strawberry-perl|qt-aqt|pyside|electron-runtime|git-source-build|wsl-bootstrap|wsl-distro|apt|dnf|pacman|zypper|apk|brew-linux|oci-container|oci-compose|script-bootstrap|powershell-gallery|vsix)$",
+					description:
+						"Primary installation-method label; must be a known path id from the environment catalog (additive revisions extend the list).",
 				}),
 				features: opt(arr(IdToken)),
 			},

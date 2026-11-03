@@ -14,6 +14,7 @@
 //   missing declarations fail executor validation rather than defaulting open.
 
 import { arr, bool, int, lit, obj, opt, type Schema, str, union } from "@earendil-works/pi-schema";
+import { EnvironmentBoundary } from "./environment.ts";
 import { EnvironmentMatch } from "./machine.ts";
 import { RegistryValueData, RegistryValueKind, ResourceId, SecurityDescriptor, ServiceConfig } from "./resources.ts";
 import {
@@ -309,6 +310,15 @@ export const actionTypes = [
 	"package.scoop",
 	"package.choco",
 	"wsl.command",
+	"wsl.distro.register",
+	"wsl.distro.unregister",
+	"wsl.instance.set",
+	"oci.image.pull",
+	"oci.container.run",
+	"oci.compose.up",
+	"oci.container.remove",
+	"git.clone",
+	"git.checkoutRef",
 	"service.configure",
 	"task.register",
 	"env.setVariable",
@@ -543,6 +553,168 @@ export const WslCommandParams = obj(
 );
 export type WslCommandParams = { distro?: string; command: string; user?: string; exit?: ExitExpectation };
 
+export const WslDistroRegisterParams = obj(
+	{
+		distro: str({ maxLength: 128 }),
+		instanceName: str({ maxLength: 64 }),
+		rootfsArtifact: opt(ArtifactLocator),
+		location: opt(FilePath),
+		version: opt(union([lit("1"), lit("2")])),
+		defaultUser: opt(str({ maxLength: 128 })),
+		setDefaultDistro: opt(bool()),
+		configFileContent: opt(str({ maxLength: 16_384, description: ".wslconfig contents (memory/cpu limits, mirrored networking, autoMemoryReclaim)." })),
+		exit: opt(ExitExpectation),
+	},
+	{
+		description:
+			'Register a WSL distro: store install (`wsl --install -d`), tarball import (`wsl --import` with pinned rootfs), or empty. The distro is a boundary resource (wsl:<name>) — getgone tears it down when ownership is exclusive.',
+	},
+);
+export type WslDistroRegisterParams = {
+	distro: string;
+	instanceName: string;
+	rootfsArtifact?: string;
+	location?: string;
+	version?: string;
+	defaultUser?: string;
+	setDefaultDistro?: boolean;
+	configFileContent?: string;
+	exit?: ExitExpectation;
+};
+
+export const WslDistroUnregisterParams = obj(
+	{
+		instanceName: str({ maxLength: 64 }),
+		keepData: opt(bool()),
+		onMissing: opt(union([lit("ignore"), lit("fail")])),
+	},
+	{ description: "`wsl --unregister`. Destructive to guest state — confirm-level unless declared by an exclusive-boundary removal plan." },
+);
+export type WslDistroUnregisterParams = { instanceName: string; keepData?: boolean; onMissing?: string };
+
+export const WslInstanceSetParams = obj(
+	{
+		instanceName: opt(str({ maxLength: 64 })),
+		setDefaultVersion: opt(union([lit("1"), lit("2")])),
+		setDefaultDistro: opt(str({ maxLength: 64 })),
+		shutdown: opt(bool()),
+	},
+	{ description: "`wsl --set-default-version`, `wsl -s`, `wsl --shutdown`." },
+);
+export type WslInstanceSetParams = { instanceName?: string; setDefaultVersion?: string; setDefaultDistro?: string; shutdown?: boolean };
+
+export const OciImagePullParams = obj(
+	{
+		runtime: union([lit("docker-engine"), lit("docker-desktop"), lit("podman"), lit("containerd"), lit("nerdctl")]),
+		image: str({ minLength: 1, maxLength: 1024 }),
+		digest: opt(Hash),
+		platform: opt(str({ pattern: "^linux/(?:amd64|arm64)(?:/v\d+)?$", maxLength: 64 })),
+		registryHost: opt(str({ maxLength: 256 })),
+		exit: opt(ExitExpectation),
+	},
+	{ description: "Pull an OCI image; digest pin required for verified recipes (latest-only pulls carry drift warnings)." },
+);
+export type OciImagePullParams = { runtime: string; image: string; digest?: string; platform?: string; registryHost?: string; exit?: ExitExpectation };
+
+export const OciContainerRunParams = obj(
+	{
+		runtime: union([lit("docker-engine"), lit("docker-desktop"), lit("podman"), lit("containerd"), lit("nerdctl")]),
+		image: str({ minLength: 1, maxLength: 1024 }),
+		digest: opt(Hash),
+		containerName: str({ maxLength: 256 }),
+		args: opt(arr(str({ maxLength: 4096 }))),
+		volumes: opt(arr(str({ maxLength: 512 }))),
+		ports: opt(arr(str({ pattern: "^(?:(?:[\d.]+:)?\d+-?\d*/(?:tcp|udp))$", maxLength: 64 }))),
+		environment: opt(StringMap),
+		networkMode: opt(union([lit("bridge"), lit("host"), lit("none"), str({ maxLength: 64 })])),
+		gpu: opt(bool()),
+		restartPolicy: opt(union([lit("no"), lit("always"), lit("on-failure"), lit("unless-stopped")])),
+		capAdd: opt(arr(str({ maxLength: 64 }))),
+		securityOptNoNewPrivileges: opt(bool()),
+		exit: opt(ExitExpectation),
+	},
+	{
+		description:
+			"Start a long-lived container as the installation form. Claims recorded: image@digest (oci:), named volumes (vol:), port bindings, guest services. Removal = stop + rm + volume reconciliation at the boundary.",
+	},
+);
+export type OciContainerRunParams = {
+	runtime: string;
+	image: string;
+	digest?: string;
+	containerName: string;
+	args?: string[];
+	volumes?: string[];
+	ports?: string[];
+	environment?: Record<string, string>;
+	networkMode?: string;
+	gpu?: boolean;
+	restartPolicy?: string;
+	capAdd?: string[];
+	securityOptNoNewPrivileges?: boolean;
+	exit?: ExitExpectation;
+};
+
+export const OciComposeUpParams = obj(
+	{
+		runtime: union([lit("docker-engine"), lit("docker-desktop"), lit("podman")]),
+		composeFile: FilePath,
+		composeFileHash: opt(Hash),
+		projectName: str({ maxLength: 256 }),
+		services: opt(arr(str({ maxLength: 256 }))),
+		profiles: opt(arr(str({ maxLength: 64 }))),
+		pullPolicy: opt(union([lit("always"), lit("missing")])),
+		exit: opt(ExitExpectation),
+	},
+	{ description: "`compose up -d` against a hashed compose file; every service becomes a boundary-scoped managed component." },
+);
+export type OciComposeUpParams = {
+	runtime: string;
+	composeFile: string;
+	composeFileHash?: string;
+	projectName: string;
+	services?: string[];
+	profiles?: string[];
+	pullPolicy?: string;
+	exit?: ExitExpectation;
+};
+
+export const OciContainerRemoveParams = obj(
+	{
+		runtime: union([lit("docker-engine"), lit("docker-desktop"), lit("podman"), lit("containerd"), lit("nerdctl")]),
+		containerName: str({ maxLength: 256 }),
+		removeVolumes: opt(bool()),
+		removeImage: opt(bool()),
+		onMissing: opt(union([lit("ignore"), lit("fail")])),
+	},
+	{ description: "Stop/remove a managed container; used by removal plans, never silently during install." },
+);
+export type OciContainerRemoveParams = { runtime: string; containerName: string; removeVolumes?: boolean; removeImage?: boolean; onMissing?: string };
+
+export const GitCloneParams = obj(
+	{
+		repository: str({ pattern: "^(?:https?://\S+|git@\S+|file:\S+)$", maxLength: 2048 }),
+		destination: FilePath,
+		ref: opt(str({ maxLength: 256, description: "Tag, branch, or commit sha; tags/sha preferred for reproducibility." })),
+		depth: opt(int({ minimum: 1, maximum: 1000 })),
+		submodules: opt(bool()),
+		exit: opt(ExitExpectation),
+	},
+	{ description: "Clone a repository as the artifact-acquisition step of the git-checkout-source-build path." },
+);
+export type GitCloneParams = { repository: string; destination: string; ref?: string; depth?: number; submodules?: boolean; exit?: ExitExpectation };
+
+export const GitCheckoutRefParams = obj(
+	{
+		workingDirectory: FilePath,
+		ref: str({ minLength: 1, maxLength: 256 }),
+		verifySignature: opt(bool()),
+		recordResolvedCommit: opt(bool()),
+	},
+	{ description: "Pin an existing checkout to a ref; resolved commit sha goes into the record as the effective hash pin." },
+);
+export type GitCheckoutRefParams = { workingDirectory: string; ref: string; verifySignature?: boolean; recordResolvedCommit?: boolean };
+
 export const ServiceConfigureParams = obj(
 	{
 		config: ServiceConfig,
@@ -686,7 +858,7 @@ export type ProcessRunParams = {
 
 export const ScriptRunParams = obj(
 	{
-		language: union([lit("powershell"), lit("cmd"), lit("batch"), lit("bash-wsl")]),
+		language: union([lit("powershell"), lit("cmd"), lit("batch"), lit("bash-wsl"), lit("sh-container")]),
 		body: str({ minLength: 1, maxLength: 262_144 }),
 		filePath: opt(FilePath),
 		limits: opt(ResourceLimits),
@@ -803,6 +975,15 @@ export const ActionParams = union(
 		PackageScoopParams,
 		PackageChocoParams,
 		WslCommandParams,
+		WslDistroRegisterParams,
+		WslDistroUnregisterParams,
+		WslInstanceSetParams,
+		OciImagePullParams,
+		OciContainerRunParams,
+		OciComposeUpParams,
+		OciContainerRemoveParams,
+		GitCloneParams,
+		GitCheckoutRefParams,
 		ServiceConfigureParams,
 		TaskRegisterParams,
 		EnvSetVariableParams,
@@ -853,6 +1034,10 @@ export const PlanStep = obj(
 		timeout: TimeoutSpec,
 		retry: opt(RetryPolicy),
 		onFailure: OnFailure,
+		boundaryRef: opt(
+			IdToken,
+			{ description: "Environment this step runs in (windows-host steps omit it). Must exist in InstallationPlan.environments." },
+		),
 		tags: opt(arr(IdToken)),
 	},
 	{
@@ -875,6 +1060,7 @@ export type PlanStep = {
 	timeout: TimeoutSpec;
 	retry?: RetryPolicy;
 	onFailure: OnFailure;
+	boundaryRef?: string;
 	tags?: string[];
 };
 
@@ -943,6 +1129,13 @@ export const InstallationPlan = obj(
 		),
 		environment: EnvironmentMatch,
 		recipe: opt(RecipeReference),
+		environments: opt(
+			arr(EnvironmentBoundary, {
+				minItems: 1,
+				description:
+					"Boundaries this plan creates or targets (WSL distros, containers, sandboxes). Steps reference them via boundaryRef; host-side provisioning steps (feature.enable, wsl.distro.register) must precede any step bound to a this-plan boundary.",
+			}),
+		),
 		artifacts: opt(arr(ArtifactProvenance)),
 		steps: arr(PlanStep, { minItems: 1 }),
 		globalPreconditions: opt(arr(Precondition)),
@@ -985,6 +1178,7 @@ export type InstallationPlan = {
 	target: { name: string; publisher?: string; version?: string; features?: string[] };
 	environment: EnvironmentMatch;
 	recipe?: RecipeReference;
+	environments?: EnvironmentBoundary[];
 	artifacts?: ArtifactProvenance[];
 	steps: PlanStep[];
 	globalPreconditions?: Precondition[];
