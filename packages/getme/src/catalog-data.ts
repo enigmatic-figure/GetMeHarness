@@ -731,7 +731,7 @@ export const seedToolchains: ToolchainSpec[] = [
 			{ variant: "wsl", channels: [{ manager: "apt", coordinate: "git", priority: 10 }] },
 		],
 		consumers: ["git-source-build", "scoop", "brew-linux", "vs-code"],
-	],
+	},
 	{
 		id: "cc-toolchain",
 		name: "C compiler for wheel/native builds (host picks one; guests get gcc)",
@@ -742,7 +742,7 @@ export const seedToolchains: ToolchainSpec[] = [
 			{ variant: "guest-gcc", channels: [{ manager: "apt", coordinate: "build-essential", priority: 10 }] },
 		],
 		consumers: ["python-wheel-sdist-builds", "cargo-install", "cmake-projects", "perl-xs"],
-	],
+	},
 ];
 
 // ---------------------------------------------------------------------------
@@ -770,7 +770,7 @@ export const seedPaths: InstallationPath[] = [
 	path({ pathId: "p.conda-env", pathClass: "python-isolated", manager: "conda-mamba", entityKind: "environment", target: "windows-host", coordinateTemplate: "conda create -n {env} && conda install {specs}", typicalPrivileges: ["none"], pinCapable: "exact-version", attributionQuality: "medium", removalRoute: "manager-uninstall", preferenceReasons: ["compatibility"], userTradeoffs: ["carries native MKL/CUDA libs pip cannot provide"] }),
 	path({ pathId: "p.pyinstaller-exe", pathClass: "native-portable", manager: "portable-zip", entityKind: "application", target: "windows-host", coordinateTemplate: "github-release:{asset}.exe portable", typicalPrivileges: ["userProfileWrite"], pinCapable: "digest", attributionQuality: "high", removalRoute: "prefix-delete" }),
 	// Node / Rust / Java / .NET / Go / Ruby
-	path({ pathId: "p.npm-global", pathClass: "node-global-or-project", manager: "npm", entityKind: "cli-tool", target: "windows-host", coordinateTemplate: "npm install -g {pkg}@{ver}", typicalPrivileges: ["none"], pinCapable: "exact-version", attributionQuality: "medium", removalRoute: "manager-uninstall"),
+	path({ pathId: "p.npm-global", pathClass: "node-global-or-project", manager: "npm", entityKind: "cli-tool", target: "windows-host", coordinateTemplate: "npm install -g {pkg}@{ver}", typicalPrivileges: ["none"], pinCapable: "exact-version", attributionQuality: "medium", removalRoute: "manager-uninstall" }),
 	path({ pathId: "p.pnpm-project", pathClass: "node-global-or-project", manager: "pnpm", entityKind: "application", target: "windows-host", coordinateTemplate: "pnpm install --dir {dir}", typicalPrivileges: ["none"], pinCapable: "digest", attributionQuality: "high", removalRoute: "prefix-delete" }),
 	path({ pathId: "p.bun", pathClass: "node-global-or-project", manager: "bun", entityKind: "cli-tool", target: "windows-host", coordinateTemplate: "bun install -g {pkg}", typicalPrivileges: ["none"], pinCapable: "exact-version", attributionQuality: "medium", removalRoute: "manager-uninstall" }),
 	path({ pathId: "p.cargo-install", pathClass: "rust-toolchain-crate", manager: "cargo", entityKind: "cli-tool", target: "windows-host", coordinateTemplate: "cargo install {crate}@{ver}", typicalPrivileges: ["none"], pinCapable: "exact-version", attributionQuality: "high", removalRoute: "manager-uninstall", prerequisiteToolchains: ["cc-toolchain"], userTradeoffs: ["compiles from source unless binstall binary exists"] }),
