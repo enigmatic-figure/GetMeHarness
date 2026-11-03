@@ -1,0 +1,44 @@
+{
+	"name": "@earendil-works/pi-getme",
+	"version": "0.1.0",
+	"description": "GetMe schemas: structured installation plans, recipes, execution records, and lifecycle contracts for the Pi harness fork (software on the user's terms)",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"sideEffects": false,
+	"files": [
+		"dist",
+		"README.md",
+		"json-schema"
+	],
+	"scripts": {
+		"clean": "node ../../scripts/package-files.mjs clean dist json-schema",
+		"build": "tsc -p tsconfig.build.json && npm run emit:json-schema",
+		"emit:json-schema": "node scripts/emit-json-schema.ts",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"keywords": [
+		"getme",
+		"json-schema",
+		"installation",
+		"windows",
+		"package-management",
+		"provenance"
+	],
+	"license": "MIT",
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"dependencies": {
+		"@earendil-works/pi-schema": "1.5.0"
+	},
+	"devDependencies": {}
+}
