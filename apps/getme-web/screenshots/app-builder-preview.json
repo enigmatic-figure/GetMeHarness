@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "GetMe",
+      "hasCanvas": false,
+      "bodyTextLen": 967,
+      "bodyTextHash": "898374b7ee16627e2f485fdbf47fa9c9e045a1eb536b00bb9c68bf8594f457a0",
+      "bodyTextPrefix": "GetMe because we got you Ask Yours 1 Updates 1 Record This PC Sa",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "GetMe",
+      "hasCanvas": false,
+      "bodyTextLen": 956,
+      "bodyTextHash": "45f583d8d7e0b3a4631bf9fcd33b8893198fe47db3d3d32bcf5ac771f2e7454b",
+      "bodyTextPrefix": "GetMe This PC Ask, or type getme, getgone, gethelp, getupdates G",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
